@@ -1,0 +1,109 @@
+package com.example.lockguard;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.*;
+import java.nio.file.*;
+import java.text.SimpleDateFormat.*;
+import java.util.Date.*;
+import com.example.lockguard.Logger;
+
+public class Locker
+{
+   public static File encrypt(File inputFile, String password) throws Exception
+   {
+   
+                    SecretKey secretKey = getSecretKeyFromPassword(password);
+
+                    Cipher cipher = Cipher.getInstance("AES");
+                    cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+
+                    byte[] inputBytes =  Files.readAllBytes(inputFile.toPath());
+                    
+                    byte[] outputBytes =  cipher.doFinal(inputBytes);
+
+                     File encryptedfiles=new File(inputFile.getName()+".locked");
+                     
+                     Files.write(encryptedfiles.toPath(),outputBytes);
+                     
+                    makeFileHidden(encryptedfiles);
+                     
+                     setFilePermissions(encryptedfiles);
+                     
+                    Logger.write("Encrypted",encryptedfiles);
+                     
+                     return encryptedfiles;
+                    
+                    
+   }
+   public static File decrypt(File encryptedfiles, String password) throws Exception
+   {
+   
+                    SecretKey secretKey = getSecretKeyFromPassword(password);
+
+                    Cipher cipher = Cipher.getInstance("AES");
+                    cipher.init(Cipher.DECRYPT_MODE, secretKey);
+
+                    byte[] inputBytes =  Files.readAllBytes(encryptedfiles.toPath());
+                    
+                    byte[] outputBytes =  cipher.doFinal(inputBytes);
+			String decryptedName= encryptedfiles.getName().replace(".locked","");
+			
+                     File decryptedfiles=new File(encryptedfiles.getParent(),decryptedName);
+                     Files.write(decryptedfiles.toPath(),outputBytes);
+                    Logger.write("Decrypted",decryptedfiles);
+                     return decryptedfiles;
+                    
+   }
+   
+   
+
+	private static SecretKey getSecretKeyFromPassword(String password) throws Exception {
+    if (password.length() < 8) {
+        throw new Exception("Password Must be at least 8 characters");
+    }
+
+    String key = password.length() > 16 ? password.substring(0, 16) : String.format("%-16s", password);
+    return new SecretKeySpec(key.getBytes(), "AES");
+}
+
+   
+       private static void makeFileHidden(File file)
+       {
+         if(System.getProperty("os.name").toLowerCase().contains("linux"))
+         {
+            String name= file.getName();
+            if(!name.startsWith("."))
+            {
+              File hiddenFile = new File(file.getParent(),"."+name);
+              
+              if(file.renameTo(hiddenFile))
+              {
+               System.out.println("File Hidden as : " +hiddenFile.getName());
+              }
+            }
+         }
+        
+       }
+       
+       
+       private static void setFilePermissions(File file)
+       {
+       
+          if(System.getProperty("os.name").toLowerCase().contains("linux"))
+         {
+           try
+           {
+              new ProcessBuilder("chmod","400",file.getAbsolutePath()).start();
+              
+              System.out.println("Permission set for 400 :" +file.getName());
+           }
+           catch(Exception e)
+           {
+              e.printStackTrace();
+           }
+         }
+       }
+       
+}
